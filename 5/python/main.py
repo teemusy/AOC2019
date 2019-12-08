@@ -1,20 +1,140 @@
 from tqdm import tqdm
 
 
-def main():
-    f = open("../5_input.txt", "r")
-    int_code = f.read()
-    f.close()
-    # create tuple from integers in int file
-    int_code = tuple([int(n) for n in int_code.split(",")])
-    # id code input
-    id_code = 1
-    # make original tuplelist to list for editing
-    original_copy = list(int_code)
-    first_result, error_codes = process_code(original_copy, id_code)
-    print("Input:", int_code)
-    print("Output:", first_result)
-    print("Error codes:", error_codes)
+def opcode_add(index, hundreds, thousands, tenthousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    position = input_list[index + 3]
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+    input_list[position] = first_value + second_value
+
+    return input_list
+
+
+def opcode_multiply(index, hundreds, thousands, tenthousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    position = input_list[index + 3]
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+
+    input_list[position] = first_value * second_value
+
+    return input_list
+
+
+def opcode_input(index, input_id_code, input_list):
+    noun = input_list[index + 1]
+    output_position = noun
+    input_value = input_id_code
+    input_list[output_position] = input_value
+
+    return input_list
+
+
+def opcode_output(index, output_list, input_list):
+    noun = input_list[index + 1]
+    input_value = input_list[noun]
+    output_list.append(input_value)
+
+    return output_list
+
+
+def opcode_jumpiftrue(index, hundreds, thousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+    if first_value != 0:
+        index = second_value
+    else:
+        index += 3
+
+    return index
+
+
+def opcode_jumpiffalse(index, hundreds, thousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+    if first_value == 0:
+        index = second_value
+    else:
+        index += 3
+
+    return index
+
+
+def opcode_lessthan(index, hundreds, thousands, tenthousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    position = input_list[index + 3]
+
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+    if tenthousands:
+        print("Tenthousands")
+        exit()
+    if first_value < second_value:
+        input_list[position] = 1
+    else:
+        input_list[position] = 0
+    return input_list
+
+
+def opcode_equals(index, hundreds, thousands, tenthousands, input_list):
+    noun = input_list[index + 1]
+    verb = input_list[index + 2]
+    position = input_list[index + 3]
+
+    if hundreds:
+        first_value = noun
+    else:
+        first_value = input_list[noun]
+    if thousands:
+        second_value = verb
+    else:
+        second_value = input_list[verb]
+    if tenthousands:
+        print("Tenthousands")
+        exit()
+    if first_value == second_value:
+        input_list[position] = 1
+    else:
+        input_list[position] = 0
+    return input_list
 
 
 def process_code(input_list, input_id_code):
@@ -25,7 +145,8 @@ def process_code(input_list, input_id_code):
         pbar.update(1)
         # init op code
         opcode = input_list[index]
-        raw_opcode = opcode
+        raw_opcode = opcode  # for debugging
+        # check for additional parameters
         hundreds, thousands, tenthousands = False, False, False
         if len(str(opcode)) > 2 and int(str(opcode)[-3]) > 0:
             hundreds = True
@@ -34,79 +155,60 @@ def process_code(input_list, input_id_code):
         if len(str(opcode)) > 4 and int(str(opcode)[-5]) > 0:
             tenthousands = True
         opcode = int(str(opcode)[-2:])
+
         if input_list[index] == 99:
             print("Exit code 99, end index: {}, list length: {}".format(index, len(input_list)))
             pbar.close()
             return input_list, output_list
 
-        noun = input_list[index + 1]
-
-        if opcode in (1, 2, 7, 8):
-            verb = input_list[index + 2]
-            position = input_list[index + 3]
-            if hundreds:
-                first_value = noun
-            else:
-                first_value = input_list[noun]
-            if thousands:
-                second_value = verb
-            else:
-                second_value = input_list[verb]
-
-            if opcode == 1:
-                input_list[position] = first_value + second_value
-                index += 4
-            elif opcode == 2:
-                input_list[position] = first_value * second_value
-                index += 4
-            elif opcode == 7:
-                if hundreds:
-                    noun = input_list[noun]
-                if thousands:
-                    verb = input_list[verb]
-                if noun < verb:
-                    input_list[position] = 1
-                else:
-                    input_list[position] = 0
-                index += 3
-            elif opcode == 8:
-                if hundreds:
-                    noun = input_list[noun]
-                if thousands:
-                    verb = input_list[verb]
-                if noun == verb:
-                    input_list[position] = 1
-                else:
-                    input_list[position] = 0
-                index += 3
-        elif opcode == 3:
-            output_position = noun
-            input_value = input_id_code
-            input_list[output_position] = input_value
+        if opcode == 1:
+            input_list = opcode_add(index, hundreds, thousands, tenthousands, input_list)
+            index += 4
+        elif opcode == 2:
+            input_list = opcode_multiply(index, hundreds, thousands, tenthousands, input_list)
+            index += 4
+        elif opcode == 3 and not hundreds and not thousands and not tenthousands:
+            input_list = opcode_input(index, input_id_code, input_list)
             index += 2
         elif opcode == 4 and not hundreds and not thousands and not tenthousands:
-            input_value = input_list[noun]
-            output_list.append(input_value)
+            output_list = opcode_output(index, output_list, input_list)
             index += 2
-        elif noun and opcode == 5:
-            verb = input_list[index + 2]
-            if thousands:
-                index = verb
-            else:
-                index = input_list[verb]
-        elif not noun and opcode == 6:
-            verb = input_list[index + 2]
-            if thousands:
-                index = verb
-            else:
-                index = input_list[verb]
+        elif opcode == 5:
+            index = opcode_jumpiftrue(index, hundreds, thousands, input_list)
+        elif opcode == 6:
+            index = opcode_jumpiffalse(index, hundreds, thousands, input_list)
+        elif opcode == 7:
+            input_list = opcode_lessthan(index, hundreds, thousands, tenthousands, input_list)
+            index += 4
+        elif opcode == 8:
+            input_list = opcode_equals(index, hundreds, thousands, tenthousands, input_list)
+            index += 4
         else:
-            index += 1
+            print("Error in opcode: {}, index: {}, list length: {}".format(raw_opcode, index, len(input_list)))
+            return input_list, output_list
     print("List ended with no exit code, list length:", len(input_list))
     return input_list, output_list
 
 
+# one example doesn't output right value so there's still some bug in code
+def main():
+    f = open("../5_input.txt", "r")
+    int_code = f.read()
+    f.close()
+    # create tuple from integers in int file
+    int_code = tuple([int(n) for n in int_code.split(",")])
+    # id code input
+    id_code = 5
+    # make original tuplelist to list for editing
+    original_copy = list(int_code)
+    first_result, error_codes = process_code(original_copy, id_code)
+    print("Input:", int_code)
+    print("Output:", first_result)
+    print("Error codes:", error_codes)
+
+
 if __name__ == '__main__':
     main()
+
 
 
