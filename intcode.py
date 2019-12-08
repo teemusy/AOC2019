@@ -39,7 +39,7 @@ def opcode_multiply(index, hundreds, thousands, tenthousands, input_list):
 def opcode_input(index, input_id_code, input_list, hundreds):
     noun = input_list[index + 1]
     if hundreds:
-        print("OPCODE 3, IMMEDIATE MODE, POSSIBLE ERROR!")
+        print("OPCODE 3, IMMEDIATE MODE, POSSIBLE ERROR!?")
         output_position = input_list[noun]
     else:
         output_position = noun
@@ -176,7 +176,7 @@ def process_code(input_list, input_id_code, second_input=None):
             index += 4
         elif opcode == 3:
             input_list = opcode_input(index, input_id_code, input_list, hundreds)
-            if second_input:
+            if second_input is not None:
                 input_id_code = second_input
                 second_input = None
             index += 2
