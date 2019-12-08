@@ -1,4 +1,4 @@
-from intcode import *
+from intcode import Intcode
 
 
 # one example doesn't output right value so there's still some bug in code
@@ -12,10 +12,14 @@ def main():
     id_code = 5
     # make original tuplelist to list for editing
     original_copy = list(int_code)
-    first_result, error_codes = process_code(original_copy, id_code)
+    computer = Intcode(original_copy, id_code)
+    while computer.return_code is None:
+        computer.step()
+    end_list = computer.int_codes
+    result = computer.return_code
     print("Input:", int_code)
-    print("Output:", first_result)
-    print("Error codes:", error_codes)
+    print("Output:", end_list)
+    print("Error codes:", result)
 
 
 if __name__ == '__main__':
