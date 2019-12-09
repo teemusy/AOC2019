@@ -1,46 +1,42 @@
-from tqdm import tqdm
+import numpy as np
+DEBUG = 0
 
 
 class Intcode:
 
-    def __init__(self, int_code, id_code, second_input=None):
+    def __init__(self, int_code, id_code=None, second_input=None):
         self.index = 0
         self.int_codes = int_code
         self.id_code = id_code
         self.second_input = second_input
         self.return_code = None
         self.ready = False
+        self.relative = 0
+        self.output_list = []
 
     def step(self):
         self.process_code()
-        if self.return_code is not None:
-            return self.return_code
-        else:
-            return None
+        return self.return_code
 
     def process_code(self):
-        pbar = tqdm(total=len(self.int_codes), desc="Prosessing code")
-        output_list = []
-        while self.index < len(self.int_codes):
-            if self.int_codes[self.index] == 99:
-                print("Exit code 99, end index: {}, list length: {}".format(self.index, len(self.int_codes)))
-                pbar.close()
+        # init op code
+        opcode = self.int_codes[self.index]
+        raw_opcode = opcode  # for debugging
+        # check for additional parameters
+        hundreds, thousands, tenthousands = False, False, False
+        if len(str(opcode)) > 2:
+            hundreds = int(str(opcode)[-3])
+        if len(str(opcode)) > 3:
+            thousands = int(str(opcode)[-4])
+        if len(str(opcode)) > 4:
+            tenthousands = int(str(opcode)[-5])
+        opcode = int(str(opcode)[-2:])
+        try:
+            if opcode == 99:
+                if DEBUG:
+                    print("Exit code 99, end index: {}, list length: {}".format(self.index, len(self.int_codes)))
                 self.ready = True
-                return self.return_code
-            # init op code
-            opcode = self.int_codes[self.index]
-            raw_opcode = opcode  # for debugging
-            # check for additional parameters
-            hundreds, thousands, tenthousands = False, False, False
-            if len(str(opcode)) > 2 and int(str(opcode)[-3]) > 0:
-                hundreds = True
-            if len(str(opcode)) > 3 and int(str(opcode)[-4]) > 0:
-                thousands = True
-            if len(str(opcode)) > 4 and int(str(opcode)[-5]) > 0:
-                tenthousands = True
-            opcode = int(str(opcode)[-2:])
-
-            if opcode == 1:
+            elif opcode == 1:
                 self.opcode_add(hundreds, thousands, tenthousands)
             elif opcode == 2:
                 self.opcode_multiply(hundreds, thousands, tenthousands)
@@ -59,50 +55,78 @@ class Intcode:
                 self.opcode_lessthan(hundreds, thousands, tenthousands)
             elif opcode == 8:
                 self.opcode_equals(hundreds, thousands, tenthousands)
+            elif opcode == 9:
+                self.opcode_relative(hundreds)
             else:
                 print("Error in opcode: {}, index: {}, list length: {}".
                       format(raw_opcode, self.index, len(self.int_codes)))
-                return self.int_codes, output_list
-            pbar.update(1)
-        print("List ended with no exit code, list length:", len(self.int_codes))
-        return self.return_code
+                return self.int_codes
+        except IndexError:
+            # in case list is too small extend it with 100 elements and try again
+            self.extend_list(100)
+            self.step()
+
+    def extend_list(self, value):
+        extra = np.full(value, 0, dtype=int)
+        self.int_codes.extend(extra)
 
     def opcode_add(self, hundreds, thousands, tenthousands):
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
         position = self.int_codes[self.index + 3]
-        if hundreds:
+
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
-        self.int_codes[position] = first_value + second_value
+        if tenthousands == 1:
+            third_value = self.int_codes[position]
+        elif tenthousands == 2:
+            third_value = position + self.relative
+        else:
+            third_value = position
+        self.int_codes[third_value] = first_value + second_value
         self.index += 4
 
     def opcode_multiply(self, hundreds, thousands, tenthousands):
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
         position = self.int_codes[self.index + 3]
-        if hundreds:
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
-
-        self.int_codes[position] = first_value * second_value
+        if tenthousands == 1:
+            third_value = self.int_codes[position]
+        elif tenthousands == 2:
+            third_value = position + self.relative
+        else:
+            third_value = position
+        self.int_codes[third_value] = first_value * second_value
         self.index += 4
 
     def opcode_input(self, hundreds):
         noun = self.int_codes[self.index + 1]
-        if hundreds:
-            print("OPCODE 3, IMMEDIATE MODE, POSSIBLE ERROR!?")
+        if hundreds == 1:
             output_position = self.int_codes[noun]
+        elif hundreds == 2:
+            output_position = noun + self.relative
         else:
             output_position = noun
         input_value = self.id_code
@@ -111,22 +135,29 @@ class Intcode:
 
     def opcode_output(self, hundreds):
         noun = self.int_codes[self.index + 1]
-        if hundreds:
+        if hundreds == 1:
             input_value = noun
+        elif hundreds == 2:
+            input_value = self.int_codes[noun + self.relative]
         else:
             input_value = self.int_codes[noun]
         self.return_code = input_value
+        self.output_list.append(input_value)
         self.index += 2
 
     def opcode_jumpiftrue(self, hundreds, thousands):
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
-        if hundreds:
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
         if first_value != 0:
@@ -137,12 +168,16 @@ class Intcode:
     def opcode_jumpiffalse(self, hundreds, thousands):
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
-        if hundreds:
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
         if first_value == 0:
@@ -154,40 +189,65 @@ class Intcode:
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
         position = self.int_codes[self.index + 3]
-        if hundreds:
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
-        if tenthousands:
-            print("Tenthousands")
-            exit()
-        if first_value < second_value:
-            self.int_codes[position] = 1
+        if tenthousands == 1:
+            third_value = self.int_codes[position]
+        elif tenthousands == 2:
+            third_value = position + self.relative
         else:
-            self.int_codes[position] = 0
+            third_value = position
+        if first_value < second_value:
+            self.int_codes[third_value] = 1
+        else:
+            self.int_codes[third_value] = 0
         self.index += 4
 
     def opcode_equals(self, hundreds, thousands, tenthousands):
         noun = self.int_codes[self.index + 1]
         verb = self.int_codes[self.index + 2]
         position = self.int_codes[self.index + 3]
-        if hundreds:
+        if hundreds == 1:
             first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
         else:
             first_value = self.int_codes[noun]
-        if thousands:
+        if thousands == 1:
             second_value = verb
+        elif thousands == 2:
+            second_value = self.int_codes[verb + self.relative]
         else:
             second_value = self.int_codes[verb]
-        if tenthousands:
-            print("Tenthousands")
-            exit()
-        if first_value == second_value:
-            self.int_codes[position] = 1
+        if tenthousands == 1:
+            third_value = self.int_codes[position]
+        elif tenthousands == 2:
+            third_value = position + self.relative
         else:
-            self.int_codes[position] = 0
+            third_value = position
+        if first_value == second_value:
+            self.int_codes[third_value] = 1
+        else:
+            self.int_codes[third_value] = 0
         self.index += 4
+
+    def opcode_relative(self, hundreds):
+        noun = self.int_codes[self.index + 1]
+        if hundreds == 1:
+            first_value = noun
+        elif hundreds == 2:
+            first_value = self.int_codes[noun + self.relative]
+        else:
+            first_value = self.int_codes[noun]
+        self.relative += first_value
+        self.index += 2
