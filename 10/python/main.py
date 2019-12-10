@@ -1,4 +1,3 @@
-from itertools import permutations
 from tqdm import tqdm
 import math
 import numpy as np
@@ -10,6 +9,9 @@ class Asteroid:
         self.position = position
         self.detected = 0
         self.blocking = []
+        self.base = False
+        self.direction = None
+        self.distance = None
 
 
 def main():
@@ -37,21 +39,71 @@ def main():
                 else:
                     start.detected += 1
 
-    for i in range(len(input_asteroids)):
-        for j in range(len(input_asteroids[0])):
-            for row in asteroids:
-                if row.position == (j, i):
-                    print(row.detected, end="")
-                else:
-                    print(".", end="")
-        print("\n")
-
-    best_asteroid = 0
+    best_asteroid = asteroids[0]
     for element in asteroids:
-        print("Position: {}, detected: {}, blocking: {}".format(element.position, element.detected, element.blocking))
-        if element.detected > best_asteroid:
-            best_asteroid = element.detected
-    print("Best asteroid count:", best_asteroid)
+        if element.detected > best_asteroid.detected:
+            best_asteroid = element
+    print("Best asteroid count:", best_asteroid.detected)
+    best_asteroid.base = True
+
+    # add direction and distance of asteroid relative to base
+    asteroids = get_direction(best_asteroid, asteroids)
+    for row in asteroids:
+        print(row.direction, row.distance, row.base, row.position)
+    last_asteroid = use_laser(best_asteroid, asteroids)
+    print("200th asteroid:", last_asteroid.position)
+    print("Value:", last_asteroid.position[0] * 100 + last_asteroid.position[1])
+
+
+def use_laser(best_asteroid, asteroids):
+    index = 0
+    last_degree = -1
+    # remove base
+    for i in range(len(asteroids)):
+        if asteroids[i].base:
+            asteroids.pop(i)
+            break
+    last_asteroid = None
+    while True:
+        if len(asteroids) == 0 or index == 200:
+            return last_asteroid
+        # find next asteroid to destroy
+        smallest_value = 360
+
+        for i in range(len(asteroids)):
+            if asteroids[i].direction <= smallest_value and asteroids[i].direction > last_degree:
+                smallest_value = asteroids[i].direction
+        possible_asteroids = []
+        for i in range(len(asteroids)):
+            if asteroids[i].direction == smallest_value:
+                possible_asteroids.append(i)
+        smallest_value = 100000
+        next_target = None
+        for row in possible_asteroids:
+            if asteroids[row].distance < smallest_value:
+                smallest_value = asteroids[row].distance
+                next_target = row
+        # use laser
+        last_degree = asteroids[next_target].direction
+        last_asteroid = asteroids[next_target]
+        print("Index: {}, position: {}".format(index + 1, last_asteroid.position))
+        asteroids.pop(next_target)
+        index += 1
+
+
+def get_direction(best_asteroid, asteroids):
+    start_vector = np.array(best_asteroid.position)
+    for asteroid in asteroids:
+        asteroid_vector = np.array(asteroid.position)
+        # using degrees to make it mentally easier
+        angle = math.degrees(math.atan2(asteroid_vector[1] - start_vector[1], asteroid_vector[0] - start_vector[0])) + 90
+        # normalize angles
+        if angle < 0:
+            angle += 360
+        distance = math.sqrt((asteroid_vector[0] - start_vector[0]) ** 2 + (asteroid_vector[1] - start_vector[1]) ** 2)
+        asteroid.direction = angle
+        asteroid.distance = distance
+    return asteroids
 
 
 def is_between(start_object, end_object, asteroids):
@@ -60,6 +112,7 @@ def is_between(start_object, end_object, asteroids):
     start_end_angle = math.atan2(end[1] - start[1], end[0] - start[0])
     start_end_distance = math.sqrt((end[0] - start[0]) ** 2 + (end[1] - [start[1]]) ** 2)
     for asteroid in asteroids:
+        # TODO: skip asteroids that cannot be in between
         element = np.array(asteroid.position)
         start_element_angle = math.atan2(element[1] - start[1], element[0] - start[0])
         start_element_distance = math.sqrt((element[0] - start[0]) ** 2 + (element[1] - [start[1]]) ** 2)
@@ -67,53 +120,6 @@ def is_between(start_object, end_object, asteroids):
                 asteroid.position != start_object.position:
             return asteroid
     return False
-
-
-def check_sloped(start, end, asteroids):
-    slope = calculate_slope(start, end)
-    for element in asteroids:
-        if start.position[0] > element.position[0] > end.position[0] or \
-                start.position[0] < element.position[0] < end.position[0] and \
-                start.position[1] > element.position[1] > end.position[1] or \
-                start.position[1] < element.position[1] < end.position[1]:
-            # calculate distance between start and end
-            distance_x = abs(start.position[0] - end.position[0])
-            distance_y = abs(start.position[1] - end.position[1])
-            possible_locations = []
-            location_permutations = permutations([distance_x, distance_y], 2)
-            for perm in location_permutations:
-                x = slope * perm[0]
-                y = slope * perm[1]
-                if math.floor(x == int(x) and math.floor(y == int(y))):
-                    possible_locations.append((math.floor(x), math.floor(y)))
-            if element.position in possible_locations:
-                return False
-
-    return True
-
-
-def check_between(start, end, asteroids):
-    # check if there's something in between x or y direction in case the asteroids are on same x or y
-    for element in asteroids:
-        # check if there's something between x direction
-        if element.position[1] == start.position[1] and (start.position[0] > element.position[0] > end.position[0] or
-                                                         start.position[0] < element.position[0] < end.position[0]):
-            return False
-        # check if there's something between y direction
-        elif element.position[0] == start.position[0] and (start.position[1] > element.position[1] > end.position[1] or
-                                                           start.position[1] < element.position[1] < end.position[1]):
-            return False
-
-    return True
-
-
-def calculate_slope(start, end):
-    y = (end.position[1] - start.position[1])
-    x = (end.position[0] - start.position[0])
-    if y == 0:
-        raise ZeroDivisionError
-    slope = y / x
-    return slope
 
 
 if __name__ == '__main__':
