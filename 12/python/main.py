@@ -1,41 +1,48 @@
 import numpy as np
 import copy
 from time import time
+from math import gcd
+from functools import reduce
 
 
 class Moon:
-    def __init__(self, position):
+    def __init__(self, name, position):
+        self.name = name
         self.position = np.array(position)
         self.velocity = np.array([0, 0, 0])
+        self.start = np.array(position)
 
 
 def main():
     start_time = time()
-    moon_list = [Moon([-1, 0, 2]), Moon([2, -10, -7]), Moon([4, -8, 8]), Moon([3, 5, -1])]
+    #moon_list = [Moon("Io", [-1, 0, 2]), Moon("Europa", [2, -10, -7]), Moon("Ganymede", [4, -8, 8]), Moon("Callisto", [3, 5, -1])]
     # 179 after 10 steps, 2772
-    #moon_list = [Moon([-8, -10, 0]), Moon([5, 5, 10]), Moon([2, -7, 3]), Moon([9, -8, -3])]
+    #moon_list = [Moon("Io", [-8, -10, 0]), Moon("Europa", [5, 5, 10]), Moon("Ganymede", [2, -7, 3]), Moon("Callisto", [9, -8, -3])]
     # 1940 after 100, 4686774924
-    #moon_list = [Moon([-6, -5, -8]), Moon([0, -3, -13]), Moon([-15, 10, -11]), Moon([-3, -8, 3])]  # input
-    steps = 100
+    moon_list = [Moon("Io", [-6, -5, -8]), Moon("Europa", [0, -3, -13]), Moon("Ganymede", [-15, 10, -11]), Moon("Callisto", [-3, -8, 3])]
+    # input
+    steps = 1000
 
-    total = calculate_kinetical(moon_list, steps)
+    copy_moon_list = copy.deepcopy(moon_list)
+    total = calculate_kinetical(copy_moon_list, steps)
     print("Total energy in system after {} steps: {}".format(steps, total))
-    start = find_position(moon_list, start_time)
-    print("Steps needed to return to starting position and velocity:", start)
+
+    copy_moon_list = copy.deepcopy(moon_list)
+    pattern = find_pattern(copy_moon_list)
+    pattern = [pattern[0][0], pattern[1][0], pattern[2][0]]
+    common = find_smallest_common_denominator(pattern)
+    print("Steps needed to return to starting position and velocity:", common)
     print("Time used:", time() - start_time)
 
 
-def find_position(moon_list, start_time):
-    # get staring positions and velocity
-    start_pos = []
-    start_vel = []
-    for element in moon_list:
-        temp_pos = element.position.copy()
-        temp_vel = element.velocity.copy()
-        start_pos.append(temp_pos)
-        start_vel.append(temp_vel)
+def find_smallest_common_denominator(pattern):
+    return reduce(lambda a, b: a * b // gcd(a, b), pattern)
 
+
+def find_pattern(moon_list):
+    # find how many steps it takes to orbit for each moon
     steps = 0
+    found = [[], [], []]
     while True:
         copy_moon_list = copy.deepcopy(moon_list)
         for i in range(len(moon_list)):
@@ -53,26 +60,18 @@ def find_position(moon_list, start_time):
             moon_list[i].velocity += velocity
             # apply velocity to position
             moon_list[i].position += moon_list[i].velocity
-
         steps += 1
-        if steps % 1000000 == 0 and steps != 0:
-            print("Current step: {}, time: {}".format(steps, time() - start_time))
-        # get current position and velocity
-        current_pos = []
-        current_vel = []
-        for element in moon_list:
-            temp_pos = element.position.copy()
-            temp_vel = element.velocity.copy()
-            current_pos.append(temp_pos)
-            current_vel.append(temp_vel)
+        for n in range(len(moon_list[0].position)):
+            if moon_list[0].position[n] == moon_list[0].start[n] and moon_list[0].velocity[n] == 0 \
+                    and moon_list[1].position[n] == moon_list[1].start[n] and moon_list[1].velocity[n] == 0 \
+                    and moon_list[2].position[n] == moon_list[2].start[n] and moon_list[2].velocity[n] == 0 \
+                    and moon_list[3].position[n] == moon_list[3].start[n] and moon_list[3].velocity[n] == 0:
+                found[n].append(steps)
 
-        # compare position and velocity
-        if np.array_equal(start_pos, current_pos) and np.array_equal(start_vel, current_vel):
-            break
-        else:
-            continue
-
-    return steps
+        if steps % 10000 == 0 and steps > 0:
+            print("Current step:", steps)
+        if steps > 500000 or (len(found[0]) > 0 and len(found[1]) > 0 and len(found[2]) > 0):
+            return found
 
 
 def calculate_kinetical(moon_list, steps):

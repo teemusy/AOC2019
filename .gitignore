@@ -17,3 +17,14 @@
 4/python/log.txt
 __pycache__/
 _trial_temp/
+*.toml
+01/rust/target/
+02/rust/target/
+10/10_test.txt
+09/9_test.txt
+08/8_test.txt
+07/7_test.txt
+06/6_test.txt
+05/5_test.txt
+03/3_test.txt
+04/python/log.txt
