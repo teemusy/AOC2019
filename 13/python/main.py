@@ -1,6 +1,7 @@
 from intcode import Intcode
 import numpy as np
 from matplotlib import pyplot, colors
+import pygame
 
 
 class Tile:
@@ -18,49 +19,78 @@ def main():
     computer = Intcode(int_code, 2)
     tiles = []
     x, y, tile_type = None, None, None
-    while not computer.ready:
-        computer.return_code = None
-        while computer.return_code is None and not computer.ready:
-            computer.step()
-        if computer.ready:
-            break
-        assert computer.return_code is not None
-        if x is None:
-            x = computer.return_code
-        elif y is None:
-            y = computer.return_code
-        elif tile_type is None:
-            tile_type = computer.return_code
-        if x is not None and y is not None and tile_type is not None:
-            old_tile = [n for n in tiles if n.position == (x, y)]
-            if len(old_tile):
-                assert len(old_tile) == 1
-                old_tile[0].tile = tile_type
-            else:
-                tiles.append(Tile((x, y), tile_type))
-            x, y, tile_type = None, None, None
+    current_score = None
 
-    block_tiles = [n for n in tiles if n.tile == 2]
-    print("Number of block tiles:", len(block_tiles))
+    pygame.init()
+    pygame.display.set_caption("Day 13")
+    screen = pygame.display.set_mode((840, 480))
+    screen.fill((255, 255, 255))
+    running = True
 
-    grid_map = np.full((24, 42), 0, dtype=int)
-    for element in tiles:
-        grid_map[element.position[1]][element.position[0]] = element.tile
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            while not computer.ready:
+                computer.return_code = None
+                while computer.return_code is None and not computer.ready:
+                    computer.step()
+                if computer.ready:
+                    break
+                assert computer.return_code is not None
+                if x is None:
+                    x = computer.return_code
+                elif y is None:
+                    y = computer.return_code
+                elif tile_type is None:
+                    tile_type = computer.return_code
 
-    create_visual_map(grid_map)
+                paddle_location = [n for n in tiles if n.tile == 3]
+                ball_location = [n for n in tiles if n.tile == 4]
+                if len(paddle_location) > 0 and len(ball_location) > 0:
+                    # 21 for x is neutral for paddle
+                    assert len(paddle_location) == 1
+                    assert len(ball_location) == 1
+                    if paddle_location[0].position[0] == ball_location[0].position[0]:
+                        computer.id_code = 0
+                    elif paddle_location[0].position[0] < ball_location[0].position[0]:
+                        computer.id_code = 1
+                    elif paddle_location[0].position[0] > ball_location[0].position[0]:
+                        computer.id_code = -1
 
+                if x == -1 and y == 0 and tile_type is not None:
+                    current_score = tile_type
+                    block_tiles = [n for n in tiles if n.tile == 2]
+                    if len(block_tiles) == 0:
+                        break
+                    x, y, tile_type = None, None, None
 
-def create_visual_map(input_data, override_colors=False):
-    cmap = colors.ListedColormap(['black', 'white', 'red', 'blue', 'yellow'])
-    rm = np.array(input_data)
-    if override_colors:
-        pyplot.imshow(rm, interpolation='nearest')
-    else:
-        pyplot.imshow(rm, interpolation='nearest', cmap=cmap)
-    pyplot.title('Wiregrid')
-    pyplot.tight_layout()
-    pyplot.grid()
-    pyplot.show()
+                elif x is not None and y is not None and tile_type is not None:
+                    assert x >= 0
+                    assert y >= 0
+                    assert tile_type >= 0
+                    old_tile = [n for n in tiles if n.position == (x, y)]
+                    if len(old_tile):
+                        assert len(old_tile) == 1
+                        old_tile[0].tile = tile_type
+                    else:
+                        tiles.append(Tile((x, y), tile_type))
+
+                    colors = {
+                        0: (0, 0, 255),
+                        1: (255, 0, 0),
+                        2: (0, 255, 0),
+                        3: (100, 0, 100),
+                        4: (0, 100, 255)
+                    }
+                    block_x = 20
+                    block_y = 20
+                    pygame.draw.rect(screen, colors[tile_type], (x * block_x, y * block_y, block_x, block_y))
+                    x, y, tile_type = None, None, None
+
+                pygame.display.update()
+
+    print("Final score:", current_score)
 
 
 if __name__ == '__main__':
