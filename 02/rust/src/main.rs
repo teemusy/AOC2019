@@ -1,84 +1,45 @@
 use std::fs;
+mod intcode;
 
 
 fn main() {
     let filename: &str = "../2_input.txt";
     let contents: String = fs::read_to_string(filename)
         .expect("Something went wrong reading the file");
-    let input: Vec<String> = contents.split(",").map(|n| n.to_string()).collect();
-    let mut computer: Intcode = Intcode::new(input);
+    let input: Vec<i32> = contents.split(",").map(|n| n.parse().unwrap()).collect();
+    let mut computer: intcode::Intcode = intcode::Intcode::new(input.clone());
+    // change values for part 1
+    computer.code[1] = 12;
+    computer.code[2] = 2;
 
-    // change values
-    computer.code[1] = "12".to_string();
-    computer.code[2] = "2".to_string();
-
+    // part 1
     while !computer.ready {
         computer.step();
     }
+    println!("First part answer: {}", computer.code[0]);
 
-    println!("{:#?}", computer)
-
+    // bruteforce the answer to part 2
+    let expected_value = 19690720;
+    let return_value = part_two(input.clone(), expected_value);
+    println!("Second part answer: {}", return_value);
 }
 
 
-#[derive(Debug)]
-struct Intcode {
-    code: Vec<String>,
-    index: usize,
-    ready: bool,
-    return_codes: Vec<i32>
-}
-
-// Methods
-impl Intcode{
-    fn step(&mut self) {
-        self.process();
-    }
-
-    fn process(&mut self) {
-        let n: i32 = self.code[self.index].parse().unwrap();
-        match n {
-            1 => self.add(),
-            2 => self.multiply(),
-            99 => self.quit(),
-            _ => println!("ERROR!")
+fn part_two(input: Vec<i32>, expected_value: i32) -> i32{
+    let mut output = 0;
+    'label: for i in 0..100{
+        for j in 0..100{
+            let mut computer: intcode::Intcode = intcode::Intcode::new(input.clone());
+            computer.code[1] = i;
+            computer.code[2] = j;
+            while !computer.ready {
+                computer.step();
+            }
+            if computer.code[0] == expected_value{
+                output = 100 * computer.code[1] + computer.code[2];
+                break 'label;
+            }
         }
     }
-
-    fn add(&mut self) {
-        let noun: usize = self.code[self.index + 1].parse().unwrap();
-        let verb: usize = self.code[self.index + 2].parse().unwrap();
-        let position: usize = self.code[self.index + 3].parse().unwrap();
-        let noun: i32 = self.code[noun].parse().unwrap();
-        let verb: i32 = self.code[verb].parse().unwrap();
-        self.code[position] = (noun + verb).to_string();
-        self.index += 4;
-    }
-
-    fn multiply(&mut self) {
-        let noun: usize = self.code[self.index + 1].parse().unwrap();
-        let verb: usize = self.code[self.index + 2].parse().unwrap();
-        let position: usize = self.code[self.index + 3].parse().unwrap();
-        let noun: i32 = self.code[noun].parse().unwrap();
-        let verb: i32 = self.code[verb].parse().unwrap();
-        self.code[position] = (noun * verb).to_string();
-        self.index += 4;
-    }
-
-    fn quit(&mut self) {
-        self.ready = true;
-    }
-
-}
-
-// Related functions
-impl Intcode{
-    fn new(code: Vec<String>) -> Intcode{
-        Intcode{
-            code,
-            index: 0,
-            ready: false,
-            return_codes: Vec::new()
-        }
-    }
+    output
 }
